@@ -1,0 +1,38 @@
+/*
+==============================================
+Creating Database and Schemas for my project.
+==============================================
+Script Purpose: This script is used for the purpose of creating database named 'AdventureWorks'. For this first we checked
+			wether it exists or not. If the database exists, database will be droped and recreated.
+			Also this script creates three schemas in the database named 'Bronze', 'Silver' and 'Gold'.
+      ------------------------------------------------------------------------------------------
+*/
+
+USE master;
+GO
+
+--Dropping Database
+IF EXISTS (SELECT 1 FROM SYS.DATABASES WHERE NAME= 'AdventureWorks')
+BEGIN
+	ALTER DATABASE AdventureWorks SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+	DROP DATABASE AdventureWorks
+END
+GO
+-- Creating Database
+
+CREATE DATABASE AdventureWorks
+GO
+
+USE AdventureWorks
+GO
+
+--Creating SCHEMAS
+CREATE SCHEMA Bronze
+GO
+
+CREATE SCHEMA Silver
+GO
+
+CREATE SCHEMA Gold
+GO
+
