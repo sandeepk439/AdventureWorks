@@ -1,0 +1,159 @@
+/*
+		=========================
+			Bronze Tables
+		=========================
+
+Creating DDL scripts for Bronze layer.
+This script creates tables in the 'bronze' schema, dropping existing tables if they already exist.
+--------------------------------------------------------------------------------------------------
+*/
+IF OBJECT_ID('Bronze_Cus_info','U' )IS NOT NULL
+DROP TABLE Bronze_Cus_info
+GO
+
+CREATE TABLE Bronze_Cus_info(
+CustomerKey INT NOT NULL,
+Prefix NVARCHAR(5),
+FirstName NVARCHAR(50),
+LastName NVARCHAR(50),
+BirthDate DATE,
+MaritalStatus CHAR,
+Gender CHAR,
+EmailAddress NVARCHAR(50),
+AnnualIncome MONEY,
+TotalChildren INT,
+EducationLevel NVARCHAR(50),
+Occupation NVARCHAR(50),
+HomeOwner CHAR
+)
+GO
+
+IF OBJECT_ID('Bronze_Prod_info', 'U') IS NOT NULL
+DROP TABLE Bronze_Prod_info
+GO
+
+CREATE TABLE Bronze_Prod_info(
+ProductKey INT NOT NULL,
+ProductSubcategoryKey INT,
+ProductSKU NVARCHAR(20),
+ProductName NVARCHAR(50),
+ModelName NVARCHAR(20),
+ProductDescription NVARCHAR(100),
+ProductColor NVARCHAR(20),
+ProductSize INT,
+ProductStyle INT,
+ProductCost MONEY,
+ProductPrice MONEY
+)
+GO
+
+
+IF OBJECT_ID('Bronze_Calender_info', 'U') IS NOT NULL
+DROP TABLE Bronze_Calender_info
+GO
+CREATE TABLE Bronze_Calender_info(
+Dates Date
+)
+GO
+
+IF OBJECT_ID('Bronze_Prod_Cat', 'U') IS NOT NULL
+DROP TABLE Bronze_Prod_Cat
+GO
+
+CREATE TABLE Bronze_Prod_Cat(
+Product_Cat_Key INT NOT NULL,
+Product_Name NVARCHAR(50)
+)
+GO
+
+IF OBJECT_ID('Bronze_Prod_SubCat','U') IS NOT NULL
+DROP TABLE Bronze_Prod_SubCat
+GO
+
+CREATE TABLE Bronze_Prod_SubCat(
+SubCatKey INT NOT NULL,
+SubCatName NVARCHAR(50),
+Product_Cat_Key INT
+)
+GO
+
+IF OBJECT_ID('Bronze_Return_Data','U') IS NOT NULL
+DROP TABLE Bronze_Return_Data
+GO
+CREATE TABLE Bronze_Return_Data(
+ReturnDate DATE,
+TerritoryKey INT,
+ProductKey INT,
+ReturnQuantity INT
+)
+GO
+
+IF OBJECT_ID('Bronze_Sales_2020', 'U') IS NOT NULL
+DROP TABLE Bronze_Sales_2020
+GO
+
+CREATE TABLE Bronze_Sales_2020(
+OrderDate DATE,
+StockDate DATE,
+OrderNumber NVARCHAR(30),
+ProductKey INT,
+CustomerKey INT,
+TerritoryKey INT,
+OrderLineItem INT,
+OrderQuantity INT
+)
+GO
+
+IF OBJECT_ID('Bronze_Sales_2021','U') IS NOT NULL
+DROP TABLE Bronze_Sales_2021
+GO
+CREATE TABLE Bronze_Sales_2021(
+OrderDate DATE,
+StockDate DATE,
+OrderNumber NVARCHAR(30),
+ProductKey INT,
+CustomerKey INT,
+TerritoryKey INT,
+OrderLineItem INT,
+OrderQuantity INT
+)
+GO
+
+IF OBJECT_ID('Bronze_Sales_2022','U') IS NOT NULL
+DROP TABLE Bronze_Sales_2022
+GO
+CREATE TABLE Bronze_Sales_2022(
+OrderDate DATE,
+StockDate DATE,
+OrderNumber NVARCHAR(30),
+ProductKey INT,
+CustomerKey INT,
+TerritoryKey INT,
+OrderLineItem INT,
+OrderQuantity INT
+)
+GO
+
+IF OBJECT_ID('Bronze_Territory_lookup','U') IS NOT NULL
+DROP TABLE Bronze_Territory_lookup
+GO
+CREATE TABLE Bronze_Territory_lookup(
+SalesTerritoryKey INT,
+Region NVARCHAR(50),
+Country NVARCHAR(50),
+Continent NVARCHAR(50)
+)
+GO
+
+IF OBJECT_ID('Bronze_Cat_Sales','U') IS NOT NULL
+DROP TABLE Bronze_Cat_Sales
+GO
+CREATE TABLE Bronze_Cat_Sales(
+Dates DATE,
+Prod_Category NVARCHAR(50),
+NorthRegion INT,
+CentralRegion INT,
+SouthRegion INT
+)
+GO
+
