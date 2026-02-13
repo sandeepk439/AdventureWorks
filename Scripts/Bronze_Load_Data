@@ -1,0 +1,191 @@
+USE AdventureWorks
+GO
+
+DECLARE @Start_time DATE, @End_time DATE
+
+SET @Start_time=GETDATE()
+
+PRINT '>>Truncating : Bronze_Calender_info'
+TRUNCATE TABLE Bronze_Calender_info
+
+PRINT 'Inserting Data- Bronze_Calender_info'
+BULK INSERT Bronze_Calender_info 
+	FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Calendar_Lookup.csv'
+	WITH (
+		FIRSTROW=2,
+		FIELDTERMINATOR=',',
+		TABLOCK
+		)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:'+CAST(DATEDIFF(Second,@Start_time,@End_time)AS NVARCHAR) +' Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time= GETDATE()
+PRINT 'Truncating table: Bronze_Cat_Sales'
+TRUNCATE TABLE Bronze_Cat_Sales
+
+PRINT 'Inserting Data: Bronze_Cat_Sales'
+BULK INSERT Bronze_Cat_Sales
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\Product_Category_Sales_(Unpivot Demo).csv'
+WITH(
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duratio:' + CAST(DATEDIFF(SECOND,@Start_time,@End_time) AS NVARCHAR ) + ' Seconds'
+PRINT '--------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Stg_Cus_Info'
+TRUNCATE TABLE Stg_Cus_Info
+
+PRINT 'Inserting Date: Stg_Cus_Info'
+BULK INSERT Stg_Cus_Info
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Customer_Lookup.csv'
+WITH (
+    FORMAT = 'CSV',
+    FIRSTROW = 2,
+    --FIELDQUOTE = '"',
+    FIELDTERMINATOR = ',',
+    --ROWTERMINATOR = '0x0A',
+    --CODEPAGE = '65001',
+    TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Bronze_Prod_Cat'
+TRUNCATE TABLE Bronze_Prod_Cat
+
+PRINT 'Inserting Date: Bronze_Prod_Cat'
+BULK INSERT Bronze_Prod_Cat
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Product_Categories_Lookup.csv'
+WITH (
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Stg_Prod_info'
+TRUNCATE TABLE Stg_Prod_info
+
+PRINT 'Inserting Date: Stg_Prod_info'
+BULK INSERT Stg_Prod_info
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Product_Lookup.csv'
+WITH (
+    FORMAT = 'CSV',
+    FIRSTROW = 2,
+    FIELDQUOTE = '"',
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '0x0A',
+    CODEPAGE = '65001',
+    TABLOCK
+	)
+
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Bronze_Prod_SubCat'
+TRUNCATE TABLE Bronze_Prod_SubCat
+
+PRINT 'Inserting Date: Bronze_Prod_SubCat'
+BULK INSERT Bronze_Prod_SubCat
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Product_Subcategories_Lookup.csv'
+WITH (
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Bronze_Return_Data'
+TRUNCATE TABLE Bronze_Return_Data
+
+PRINT 'Inserting Date: Bronze_Return_Data'
+BULK INSERT Bronze_Return_Data
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Returns_Data.csv'
+WITH (
+    FORMAT = 'CSV',
+    FIRSTROW = 2,
+    FIELDTERMINATOR = ',',
+    TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Bronze_Sales_2020'
+TRUNCATE TABLE Bronze_Sales_2020
+
+PRINT 'Inserting Date: Bronze_Sales_2020'
+BULK INSERT Bronze_Sales_2020
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Sales_Data_2020.csv'
+WITH (
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Bronze_Sales_2021'
+TRUNCATE TABLE Bronze_Sales_2021
+
+PRINT 'Inserting Date: Bronze_Sales_2021'
+BULK INSERT Bronze_Sales_2021
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Sales_Data_2021.csv'
+WITH (
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Bronze_Sales_2022'
+TRUNCATE TABLE Bronze_Sales_2022
+
+PRINT 'Inserting Date: Bronze_Sales_2022'
+BULK INSERT Bronze_Sales_2022
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Sales_Data_2022.csv'
+WITH (
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
+
+SET @Start_time=GETDATE()
+PRINT 'Truncating: Bronze_Territory_lookup'
+TRUNCATE TABLE Bronze_Territory_lookup
+
+PRINT 'Inserting Date: Bronze_Territory_lookup'
+BULK INSERT Bronze_Territory_lookup
+FROM 'C:\Users\DELL\Documents\SQL_Server_Management_Studio\AdventureWorksRawData\AdventureWorks_Territory_Lookup.csv'
+WITH (
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+SET @End_time=GETDATE()
+PRINT 'Load Duration:' + CAST(DATEDIFF(SECOND, @Start_time, @End_time)AS NVARCHAR) + 'Seconds'
+PRINT '---------------------------------------------------------------------------'
