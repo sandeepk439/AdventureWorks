@@ -17,19 +17,19 @@ DROP TABLE Stg_Cus_info
 GO
 
 CREATE TABLE Stg_Cus_Info (
-CustomerKey VARCHAR(50),
-Prefix VARCHAR(50),
-FirstName VARCHAR(50),
-LastName VARCHAR(50),
-BirthDate VARCHAR(50),
-MaritalStatus VARCHAR(50),
-Gender VARCHAR(50),
-EmailAddress VARCHAR(100),
-AnnualIncome VARCHAR(50),
-TotalChildren VARCHAR(50),
-EducationLevel VARCHAR(50),
-Occupation VARCHAR(50),
-HomeOwner VARCHAR(50)
+CustomerKey NVARCHAR(MAX),
+Prefix NVARCHAR(MAX),
+FirstName NVARCHAR(MAX),
+LastName NVARCHAR(MAX),
+BirthDate NVARCHAR(MAX),
+MaritalStatus NVARCHAR(MAX),
+Gender NVARCHAR(MAX),
+EmailAddress NVARCHAR(MAX),
+AnnualIncome NVARCHAR(MAX),
+TotalChildren NVARCHAR(MAX),
+EducationLevel NVARCHAR(MAX),
+Occupation NVARCHAR(MAX),
+HomeOwner NVARCHAR(MAX)
 )
 GO
 
@@ -58,19 +58,20 @@ IF OBJECT_ID('Stg_Prod_info','U' )IS NOT NULL
 DROP TABLE Stg_Prod_info
 GO
 
-CREATE TABLE Stg_Prod_Info (
-ProductKey NVARCHAR(50),
-ProductSubcategoryKey NVARCHAR(50),
-ProductSKU NVARCHAR(50),
-ProductName NVARCHAR(50),
-ModelName NVARCHAR(50),
-ProductDescription NVARCHAR(50),
-ProductColor NVARCHAR(50),
-ProductSize NVARCHAR(50),
-ProductStyle NVARCHAR(50),
-ProductCost NVARCHAR(50),
-ProductPrice NVARCHAR(50)
-)
+CREATE TABLE Stg_Prod_Info
+(
+	ProductKey NVARCHAR(MAX),
+	ProductSubcategoryKey NVARCHAR(MAX),
+	ProductSKU NVARCHAR(MAX),
+	ProductName NVARCHAR(MAX),
+	ModelName NVARCHAR(MAX),
+	ProductDescription NVARCHAR(MAX),
+	ProductColor NVARCHAR(MAX),
+	ProductSize NVARCHAR(MAX),
+	ProductStyle NVARCHAR(MAX),
+	ProductCost NVARCHAR(MAX),
+	ProductPrice NVARCHAR(MAX)
+);
 GO
 
 IF OBJECT_ID('Bronze_Prod_info', 'U') IS NOT NULL
@@ -79,11 +80,11 @@ GO
 CREATE TABLE Bronze_Prod_info(
 ProductKey INT,
 ProductSubcategoryKey INT,
-ProductSKU NVARCHAR(20),
-ProductName NVARCHAR(50),
-ModelName NVARCHAR(20),
-ProductDescription NVARCHAR(100),
-ProductColor NVARCHAR(20),
+ProductSKU NVARCHAR(100),
+ProductName NVARCHAR(100),
+ModelName NVARCHAR(100),
+ProductDescription NVARCHAR(500),
+ProductColor NVARCHAR(100),
 ProductSize INT,
 ProductStyle INT,
 ProductCost FLOAT,
@@ -199,8 +200,6 @@ CentralRegion INT,
 SouthRegion INT
 )
 GO
-
-
 
 
 
