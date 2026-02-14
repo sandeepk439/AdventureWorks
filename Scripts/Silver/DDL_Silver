@@ -1,1 +1,179 @@
+/*
+		=========================
+			Silver Tables
+		=========================
+
+Creating DDL scripts for Silver layer.
+This script creates tables in the 'Silver' schema, dropping existing tables if they already exist.
+--------------------------------------------------------------------------------------------------
+*/
+USE AdventureWorks
+GO
+
+IF OBJECT_ID('Silver.Cus_info','U' )IS NOT NULL
+DROP TABLE Silver.Cus_info
+GO
+
+CREATE TABLE Silver.Cus_Info (
+CustomerKey INT,
+Prefix NVARCHAR(20),
+FirstName NVARCHAR(100),
+LastName NVARCHAR(100),
+BirthDate DATE,
+MaritalStatus NVARCHAR(20),
+Gender NVARCHAR(10),
+EmailAddress NVARCHAR(50),
+AnnualIncome MONEY,
+TotalChildren INT,
+EducationLevel NVARCHAR(50),
+Occupation NVARCHAR(50),
+HomeOwner NVARCHAR(50),
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+
+IF OBJECT_ID('Silver.Prod_info', 'U') IS NOT NULL
+DROP TABLE Silver.Prod_info
+GO
+CREATE TABLE Silver.Prod_info(
+ProductKey INT,
+ProductSubcategoryKey INT,
+ProductSKU NVARCHAR(250),
+ProductName NVARCHAR(250),
+ModelName NVARCHAR(200),
+ProductDescription NVARCHAR(500),
+ProductColor NVARCHAR(200),
+ProductSize INT,
+ProductStyle INT,
+ProductCost FLOAT,
+ProductPrice FLOAT,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Calender_info', 'U') IS NOT NULL
+DROP TABLE Silver.Calender_info
+GO
+CREATE TABLE Silver.Calender_info(
+Dates Date,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Prod_Cat', 'U') IS NOT NULL
+DROP TABLE Silver.Prod_Cat
+GO
+
+CREATE TABLE Silver.Prod_Cat(
+Product_Cat_Key INT NOT NULL,
+Product_Name NVARCHAR(50),
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Prod_SubCat','U') IS NOT NULL
+DROP TABLE Silver.Prod_SubCat
+GO
+
+CREATE TABLE Silver.Prod_SubCat(
+SubCatKey INT NOT NULL,
+SubCatName NVARCHAR(50),
+Product_Cat_Key INT,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Return_Data','U') IS NOT NULL
+DROP TABLE Silver.Return_Data
+GO
+CREATE TABLE Silver.Return_Data(
+ReturnDate DATE,
+TerritoryKey INT,
+ProductKey INT,
+ReturnQuantity INT,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Sales_2020', 'U') IS NOT NULL
+DROP TABLE Silver.Sales_2020
+GO
+
+CREATE TABLE Silver.Sales_2020(
+OrderDate DATE,
+StockDate DATE,
+OrderNumber NVARCHAR(30),
+ProductKey INT,
+CustomerKey INT,
+TerritoryKey INT,
+OrderLineItem INT,
+OrderQuantity INT,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Sales_2021','U') IS NOT NULL
+DROP TABLE Silver.Sales_2021
+GO
+CREATE TABLE Silver.Sales_2021(
+OrderDate DATE,
+StockDate DATE,
+OrderNumber NVARCHAR(30),
+ProductKey INT,
+CustomerKey INT,
+TerritoryKey INT,
+OrderLineItem INT,
+OrderQuantity INT,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Sales_2022','U') IS NOT NULL
+DROP TABLE Silver.Sales_2022
+GO
+CREATE TABLE Silver.Sales_2022(
+OrderDate DATE,
+StockDate DATE,
+OrderNumber NVARCHAR(30),
+ProductKey INT,
+CustomerKey INT,
+TerritoryKey INT,
+OrderLineItem INT,
+OrderQuantity INT,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Ter_info','U') IS NOT NULL
+DROP TABLE Silver.Ter_info
+GO
+CREATE TABLE Silver.Ter_info(
+SalesTerritoryKey INT,
+Region NVARCHAR(50),
+Country NVARCHAR(50),
+Continent NVARCHAR(50),
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+IF OBJECT_ID('Silver.Cat_Sales','U') IS NOT NULL
+DROP TABLE Silver.Cat_Sales
+GO
+CREATE TABLE Silver.Cat_Sales(
+Dates DATE,
+Prod_Category NVARCHAR(50),
+NorthRegion INT,
+CentralRegion INT,
+SouthRegion INT,
+dwh_create_date DATETIME2 DEFAULT GETDATE()
+)
+GO
+
+
+
+
+
+
+
 
