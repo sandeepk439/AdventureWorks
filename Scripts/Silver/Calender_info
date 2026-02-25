@@ -1,0 +1,22 @@
+/*
+=========================================================
+Inserting Into Bronze.Calender_info>>Silver.Calender_info
+=========================================================
+Using Extract, Transform and load to insert data into Silver schema Calender info table.
+
+*/
+
+USE AdventureWorks
+GO
+
+PRINT 'Truncating table Calender info'
+TRUNCATE TABLE Silver.Calender_info;
+
+PRINT 'Loading data into: Silver.Calender_info'
+
+INSERT INTO Silver.Calender_info
+(
+Dates
+)
+SELECT Dates 
+FROM Bronze.Calender_info
