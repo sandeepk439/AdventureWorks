@@ -1,0 +1,32 @@
+/*
+=========================================================
+Inserting Into Bronze.Cat_Sales>>Silver.Cat_Sales
+=========================================================
+Using Extract, Transform and load to insert data into Silver schema Sales Category table.
+
+*/
+
+USE AdventureWorks
+GO
+
+PRINT 'Truncating table Sales Category'
+TRUNCATE TABLE Silver.Cat_Sales;
+
+PRINT 'Loading data into: Silver.Cat_Sales'
+
+INSERT INTO Silver.Cat_Sales
+(
+Dates,
+Prod_Category,
+NorthRegion,
+CentralRegion,
+SouthRegion
+)
+SELECT 
+Dates,
+Prod_Category,
+NorthRegion,
+CentralRegion,
+SouthRegion
+FROM Bronze.Cat_Sales
+WHERE Dates IS NOT NULL
