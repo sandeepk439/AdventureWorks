@@ -1,0 +1,75 @@
+/*
+=========================================================
+Inserting Into Bronze.Sales_2020>>Silver.Sales_2020
+=========================================================
+Using Extract, Transform and load to insert data into Silver schema Sales 2020 table.
+Implemented duplicate handling using ROW_NUMBER partitioned by OrderNumber
+with row number rn=1 records. The load is wrapped inside a TRY-CATCH transaction block to ensure data integrity.
+
+*/
+
+USE AdventureWorks
+GO
+
+BEGIN TRY
+	BEGIN TRAN;
+
+		PRINT 'Truncating table Sales 2020'
+		TRUNCATE TABLE Silver.Sales_2020;
+
+		WITH CTE_Sales_2020 AS
+		(
+			SELECT *,
+			TRY_CONVERT(DATE,OrderDate) AS OrderDate_Clean,
+			TRY_CONVERT(DATE,StockDate) AS StockDate_Clean,
+			TRY_CONVERT(INT,ProductKey) AS ProductKey_Clean,
+			TRY_CONVERT(INT,CustomerKey) AS CustomerKey_Clean,
+			TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_Clean,
+			TRY_CONVERT(INT, OrderLineItem) AS OrderLineItem_Clean,
+			TRY_CONVERT(INT,OrderQuantity) AS OrderQuantity_Clean, 
+			ROW_NUMBER() OVER (PARTITION BY OrderNumber,OrderLineItem 
+			ORDER BY TRY_CONVERT(DATE,OrderDate) DESC) AS rn
+			FROM Bronze.Sales_2020
+		)
+
+		INSERT INTO Silver.Sales_2020
+		(
+		OrderDate,
+		StockDate,
+		OrderNumber,
+		ProductKey,
+		CustomerKey,
+		TerritoryKey,
+		OrderLineItem,
+		OrderQuantity
+		)
+
+		SELECT 
+		OrderDate_Clean,
+		StockDate_Clean,
+		OrderNumber,
+		ProductKey_Clean,
+		CustomerKey_Clean,
+		TerritoryKey_Clean,
+		OrderLineItem_Clean,
+		OrderQuantity_Clean
+		FROM CTE_Sales_2020 
+		WHERE rn=1
+		AND OrderQuantity>=0
+		AND OrderDate_Clean IS NOT NULL
+		AND ProductKey_Clean IS NOT NULL
+		AND OrderNumber IS NOT NULL
+		AND StockDate_Clean IS NOT NULL
+
+		PRINT 'Rows Inserted '+CAST(@@ROWCOUNT AS NVARCHAR);
+	COMMIT;
+	PRINT 'Sales Load completed successfully.'
+END TRY
+BEGIN CATCH
+
+    ROLLBACK;
+
+    PRINT 'Error Occurred';
+    PRINT ERROR_MESSAGE();
+
+END CATCH;
