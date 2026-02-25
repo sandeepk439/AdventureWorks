@@ -1,0 +1,74 @@
+/*
+===========================
+Loading Silver Customer info
+===========================
+Extracting, Transforming and Loading Customer info from Bronze Schema to Silver Schema.
+*/
+USE AdventureWorks
+GO
+
+PRINT '>> Truncating Silver.Customer_info'
+TRUNCATE TABLE Silver.Cus_info;
+
+PRINT '>> Inserting into Silver.Customer_info';
+WITH CTE_Bronze_Cus_info AS
+(
+	SELECT *,
+	TRY_CONVERT(INT,CustomerKey) AS CustomerKeyINT,
+	TRY_CONVERT(DATE,BirthDate) AS BirthDateDate,
+	TRY_CONVERT(decimal(18,2),AnnualIncome)AS AnnualIncomeDEC,
+	TRY_CONVERT(INT,TotalChildren) AS TotalChildrenINT,
+	ROW_NUMBER() OVER 
+	(
+	PARTITION BY TRY_CONVERT(INT,CustomerKey) ORDER BY(SELECT (NULL))
+	) AS rn
+	FROM Bronze.Cus_Info WHERE TRY_CONVERT(INT, CustomerKey) IS NOT NULL
+)
+INSERT INTO Silver.Cus_Info
+(
+CustomerKey,
+Prefix,
+FirstName,
+LastName,
+BirthDate,
+MaritalStatus,
+Gender,
+EmailAddress,
+AnnualIncome,
+TotalChildren,
+EducationLevel,
+Occupation,
+HomeOwner
+)
+SELECT 
+CustomerKeyINT,
+CASE
+	WHEN Prefix IN ('MR.','MRS.','MS.') THEN Prefix 
+	ELSE 'Unknown' 
+END AS Prefix,
+LTRIM(RTRIM(FirstName)),
+LTRIM(RTRIM(LastName)),
+BirthDateDate,
+CASE 
+	WHEN MaritalStatus='S' THEN 'Single'
+	WHEN MaritalStatus='M' THEN 'Married' 
+	ELSE 'Unknown' 
+END AS MaritalStatus,
+CASE 
+	WHEN Gender='M' THEN 'Male'
+	WHEN GENDER= 'F' THEN 'Female'
+	ELSE 'NA' 
+END AS Gender,
+EmailAddress,
+AnnualIncomeDEC,
+TotalChildrenINT,
+EducationLevel,
+Occupation,
+CASE 
+	WHEN HomeOwner IN ('Y','YES') THEN 1
+	ELSE 0
+END 
+FROM CTE_Bronze_Cus_info
+WHERE rn=1 
+AND LOWER(EmailAddress) like '%@adventure-works.com'
+AND TRY_CONVERT(DATE,BirthDate) BETWEEN '1900-01-01' AND GETDATE()
