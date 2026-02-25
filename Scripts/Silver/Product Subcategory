@@ -1,0 +1,28 @@
+/*
+=========================================================
+Inserting Into Bronze.Prod_SubCat>>Silver.Prod_SubCat
+=========================================================
+Using Extract, Transform and load to insert data into Silver schema Product SubCategory table.
+
+*/
+
+USE AdventureWorks
+GO
+
+PRINT 'Truncating table Product SubCategory'
+TRUNCATE TABLE Silver.Prod_SubCat;
+
+PRINT 'Loading data into: Silver.Prod_SubCat'
+
+INSERT INTO Silver.Prod_SubCat
+(
+SubCatKey,
+SubCatName,
+Product_Cat_Key
+)
+SELECT
+SubCatKey,
+SubCatName,
+Product_Cat_Key
+FROM Bronze.Prod_SubCat
+WHERE SubCatKey IS NOT NULL
