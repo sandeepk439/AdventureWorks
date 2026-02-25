@@ -1,0 +1,138 @@
+/*
+=========================================================
+Inserting Into Bronze.Return_Data>>Silver.Return_Data
+=========================================================
+Using Extract, Transform and load to insert data into Silver schema Return data table.
+
+I have implemented duplicate handling using ROW_NUMBER partitioned by business keys.
+Valid records are inserted into the Silver table, while invalid and duplicate records are
+inserted into rejected table. Row counts and execution time is stored in an ETL log table 
+for monitoring and auditing.
+
+
+*/
+
+	USE AdventureWorks
+	GO
+
+	PRINT 'Truncating table Return Data'
+	TRUNCATE TABLE Silver.Return_Data;
+
+	PRINT 'Loading data into: Silver.Return_Data'
+
+	DECLARE @StartTime DATETIME, @EndTime DATETIME, @RowsInserted INT, @RowsRejected INT, @Error_Message NVARCHAR(MAX)
+	SET @StartTime=GETDATE();
+	BEGIN TRY
+		BEGIN TRAN;
+			PRINT 'Truncating table Return Data'
+			TRUNCATE TABLE Silver.Return_Data;
+
+			PRINT 'Loading data into: Silver.Return_Data';
+
+			WITH CTE_Return_Data AS
+			(
+				SELECT *,
+				TRY_CONVERT(DATE,ReturnDate) AS ReturnDate_Date,
+				TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_INT,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_INT,
+				TRY_CONVERT(INT,ReturnQuantity) AS ReturnQuantity_INT,
+				ROW_NUMBER() OVER (PARTITION BY ReturnDate,TerritoryKey,ProductKey 
+				ORDER BY TRY_CONVERT(DATE,ReturnDate))
+				AS rn FROM Bronze.Return_Data
+			)
+			INSERT INTO Silver.Return_Data -- INSERT VALID AND UNIQUE RECORD
+			(
+			ReturnDate,
+			TerritoryKey,
+			ProductKey,
+			ReturnQuantity
+			)
+			SELECT 
+			ReturnDate_Date,
+			TerritoryKey_INT,
+			ProductKey_INT,
+			ReturnQuantity_INT
+			FROM CTE_Return_Data 
+			WHERE rn=1
+			AND ReturnDate_Date IS NOT NULL
+			AND ProductKey_INT IS NOT NULL
+			AND TerritoryKey_INT IS NOT NULL
+			AND ReturnQuantity_INT>0
+
+			SET @RowsInserted =@@ROWCOUNT;
+			WITH CTE_Return_Data AS
+			(
+				SELECT *,
+				TRY_CONVERT(DATE,ReturnDate) AS ReturnDate_Date,
+				TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_INT,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_INT,
+				TRY_CONVERT(INT,ReturnQuantity) AS ReturnQuantity_INT,
+				ROW_NUMBER() OVER (PARTITION BY TRY_CONVERT(DATE,ReturnDate),TRY_CONVERT(INT,TerritoryKey),TRY_CONVERT(INT,ProductKey) 
+				ORDER BY TRY_CONVERT(DATE,ReturnDate))
+				AS rn FROM Bronze.Return_Data
+			)
+
+			INSERT INTO Silver.Return_Data_Rejected --INSERT REJECTED RECORD
+			(
+			ReturnDate,
+			TerritoryKey,
+			ProductKey,
+			ReturnQuantity,
+			ReturnReason
+			)
+			SELECT 
+			ReturnDate_Date,
+			TerritoryKey_INT,
+			ProductKey_INT,
+			ReturnQuantity_INT,
+			CASE 
+				WHEN rn>1 THEN 'Duplicate Record'
+				WHEN ReturnDate_Date IS NULL THEN 'Invalid Date'
+				WHEN TerritoryKey_INT IS NULL THEN 'Invalid Location'
+				WHEN ReturnQuantity_INT<=0 THEN 'Invalid Quantity'
+				WHEN ProductKey_INT IS NULL THEN 'Invalid ProductKey'
+				ELSE 'Unkown Error'
+			END
+			FROM CTE_Return_Data
+			WHERE rn>1
+			OR ReturnDate_Date IS NULL
+			OR ProductKey_INT IS NULL
+			OR TerritoryKey_INT IS NULL
+			OR ReturnQuantity_INT <=0
+
+		SET @RowsRejected=@@ROWCOUNT;
+		COMMIT;
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE() <> 0
+		ROLLBACK;
+		PRINT 'ERROR OCCURRED' + ERROR_MESSAGE()
+	END CATCH
+	SET @EndTime=GETDATE();
+	SET @Error_Message=ERROR_MESSAGE();
+
+	INSERT INTO Silver.ETL_Log --INSERT LOG TRY
+	(
+	TableName,
+	StartTime,
+	EndTime,
+	RowsInserted,
+	RowsRejected,
+	Status,
+	ErrorMessage
+	)
+	VALUES
+	(
+	'Return Data',
+	@StartTime,
+	@EndTime,
+	@RowsInserted,
+	@RowsRejected,
+	CASE WHEN @Error_Message IS NULL THEN 'Success' ELSE 'Failed' END,
+	@Error_Message
+	)
+	
+	PRINT 'INSERTED' + CAST( @RowsInserted AS NVARCHAR);
+	PRINT 'Rejected' + CAST (@RowsRejected AS NVARCHAR);
+	PRINT 'Load duration' + CAST(DATEDIFF(Second, @StartTime, @EndTime) AS NVARCHAR) + 'Seconds'
+	PRINT '==========================================================================='
