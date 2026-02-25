@@ -1,0 +1,24 @@
+/*
+=========================================================
+Inserting Into Bronze.Territory_info>>Silver.Territory_info
+=========================================================
+Using Extract, Transform and load to insert data into Silver schema Territory info table.
+
+*/
+USE AdventureWorks
+GO
+
+INSERT INTO Silver.Ter_info
+(
+SalesTerritoryKey,
+Region,
+Country,
+Continent
+)
+SELECT 
+SalesTerritoryKey,
+Region,
+Country,
+Continent
+FROM Bronze.Ter_info
+WHERE TRY_CONVERT(INT,SalesTerritoryKey) IS NOT NULL
