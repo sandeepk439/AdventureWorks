@@ -1,0 +1,60 @@
+/*
+=================================================
+Inserting Into Bronze.Prod_info>>Silver.Prod_info
+=================================================
+Using Extract, Transform and load to insert data into Silver schema Product info table.
+
+*/
+
+USE AdventureWorks
+GO
+
+PRINT '>> Truncating Table Silver_Product_info'
+TRUNCATE TABLE Silver.Prod_info;
+
+PRINT '>> INSERTING data into Silver_Product_info';
+
+WITH CTE_Product_info AS
+(
+SELECT *,
+	TRY_CONVERT(INT,ProductKey) AS ProductKey_INT,
+	TRY_CONVERT(INT, ProductSubCategoryKey) AS ProductSubCategoryKey_INT,
+	TRY_CONVERT(decimal(18,2),ProductCost) AS ProductCost_DECI,
+	--Getting all rows NULL in ProductPrice, may be ProductPrice have non-numeric suffix/prefix. so we use replace.
+	TRY_CONVERT(DECIMAL(18,2), NULLIF(REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(ProductPrice)),CHAR(13), ''),CHAR(10), ''),',', ''),'')) AS ProductPrice_DECI,
+	ROW_NUMBER() OVER (PARTITION BY TRY_CONVERT(INT, ProductKey) ORDER BY(SELECT(NULL))) AS RN FROM Bronze.Prod_Info
+	WHERE TRY_CONVERT(INT, ProductKey) IS NOT NULL
+)
+
+INSERT INTO Silver.Prod_info
+(
+ProductKey,
+ProductSubcategoryKey,
+ProductSKU,
+ProductName,
+ModelName,
+ProductDescription,
+ProductColor,
+ProductSize,
+ProductStyle,
+ProductCost,
+ProductPrice
+)
+SELECT
+ProductKey_INT,
+ProductSubCategoryKey_INT,
+ProductSKU,
+ProductName,
+ModelName,
+ProductDescription,
+ProductColor,
+ProductSize,
+ProductStyle,
+ProductCost_DECI,
+ProductPrice_DECI
+FROM CTE_Product_info 
+WHERE RN=1
+AND ProductCost_DECI IS NOT NULL
+AND ProductPrice_DECI IS NOT NULL 
+AND ProductCost_DECI>0 --NEGATIVE VALUE
+AND ProductPrice_DECI>0
