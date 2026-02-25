@@ -1,0 +1,23 @@
+===========================================================
+New Table has been created to log the  data of return product
+============================================================
+CREATE TABLE Silver.Return_Data_Rejected (
+ReturnDate DATE,
+TerritoryKey INT,
+ProductKey INT,
+ReturnQuantity INT,
+ReturnReason NVARCHAR(50),
+LoadDate DATETIME DEFAULT GETDATE()
+)
+
+CREATE TABLE Silver.ETL_Log
+(
+    LogID INT IDENTITY(1,1) PRIMARY KEY,
+    TableName NVARCHAR(100),
+    StartTime DATETIME,
+    EndTime DATETIME,
+    RowsInserted INT,
+    RowsRejected INT,
+    Status NVARCHAR(20),
+    ErrorMessage NVARCHAR(MAX)
+);
