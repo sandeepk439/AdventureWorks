@@ -1,0 +1,588 @@
+/*
+=========================================
+Stored Procedure: Loading Bronze>>Silver
+=========================================
+This stored procedure is used to Extract, Transform and Load(ETL) data from
+Bronze Schema Tables to Silver Schema Tables.
+
+EXEC Silver_Load_Data
+
+*/
+
+USE AdventureWorks
+GO
+CREATE OR ALTER PROCEDURE Silver_Load_Data AS
+BEGIN
+	DECLARE @StartTime DATE, @EndTime DATE, @RowsInserted INT, @RowsRejected INT , @Error_Message NVARCHAR(MAX);
+
+	SET @StartTime=GETDATE();
+
+	BEGIN TRY
+		BEGIN TRAN;
+			PRINT '>> Truncating Silver.Customer_info'
+			TRUNCATE TABLE Silver.Cus_info;
+
+			PRINT '>> Inserting into Silver.Customer_info';
+			WITH CTE_Bronze_Cus_info AS
+			(
+				SELECT *,
+				TRY_CONVERT(INT,CustomerKey) AS CustomerKeyINT,
+				TRY_CONVERT(DATE,BirthDate) AS BirthDateDate,
+				TRY_CONVERT(decimal(18,2),AnnualIncome)AS AnnualIncomeDEC,
+				TRY_CONVERT(INT,TotalChildren) AS TotalChildrenINT,
+				ROW_NUMBER() OVER 
+				(
+				PARTITION BY TRY_CONVERT(INT,CustomerKey) ORDER BY(SELECT (NULL))
+				) AS rn
+				FROM Bronze.Cus_Info WHERE TRY_CONVERT(INT, CustomerKey) IS NOT NULL
+			)
+			INSERT INTO Silver.Cus_Info
+			(
+			CustomerKey,
+			Prefix,
+			FirstName,
+			LastName,
+			BirthDate,
+			MaritalStatus,
+			Gender,
+			EmailAddress,
+			AnnualIncome,
+			TotalChildren,
+			EducationLevel,
+			Occupation,
+			HomeOwner
+			)
+			SELECT 
+			CustomerKeyINT,
+			CASE
+				WHEN Prefix IN ('MR.','MRS.','MS.') THEN Prefix 
+				ELSE 'Unknown' 
+			END AS Prefix,
+			LTRIM(RTRIM(FirstName)),
+			LTRIM(RTRIM(LastName)),
+			BirthDateDate,
+			CASE 
+				WHEN MaritalStatus='S' THEN 'Single'
+				WHEN MaritalStatus='M' THEN 'Married' 
+				ELSE 'Unknown' 
+			END AS MaritalStatus,
+			CASE 
+				WHEN Gender='M' THEN 'Male'
+				WHEN GENDER= 'F' THEN 'Female'
+				ELSE 'NA' 
+			END AS Gender,
+			EmailAddress,
+			AnnualIncomeDEC,
+			TotalChildrenINT,
+			EducationLevel,
+			Occupation,
+			CASE 
+				WHEN HomeOwner IN ('Y','YES') THEN 1
+				ELSE 0
+			END 
+			FROM CTE_Bronze_Cus_info
+			WHERE rn=1 
+			AND LOWER(EmailAddress) like '%@adventure-works.com'
+			AND BirthDateDate BETWEEN '1900-01-01' AND GETDATE()
+		
+			PRINT 'Rows inserted '+ CAST(@@ROWCOUNT AS NVARCHAR)
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE()<>0 -- Safe ROLLBACK CHECK
+		ROLLBACK;
+		PRINT 'ERROR OCCURED ' + ERROR_MESSAGE();
+	END CATCH
+	SET @EndTime= GETDATE();
+	PRINT 'Load Duration' + CAST(DATEDIFF(SECOND,@StartTime, @EndTime)AS NVARCHAR)+'Seconds'
+	PRINT '================================================================================'
+
+	SET @StartTime=GETDATE();
+
+	BEGIN TRY
+		BEGIN TRAN;
+			PRINT '>> Truncating Table Silver_Product_info'
+			TRUNCATE TABLE Silver.Prod_info;
+
+			PRINT '>> INSERTING data into Silver_Product_info';
+
+			WITH CTE_Product_info AS
+			(
+			SELECT *,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_INT,
+				TRY_CONVERT(INT, ProductSubCategoryKey) AS ProductSubCategoryKey_INT,
+				TRY_CONVERT(decimal(18,2),ProductCost) AS ProductCost_DECI,
+				--Getting all rows NULL in ProductPrice, may be ProductPrice have non-numeric suffix/prefix. so we use replace.
+				TRY_CONVERT(DECIMAL(18,2), NULLIF(REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(ProductPrice)),CHAR(13), ''),CHAR(10), ''),',', ''),'')) AS ProductPrice_DECI,
+				ROW_NUMBER() OVER (PARTITION BY TRY_CONVERT(INT, ProductKey) ORDER BY(SELECT(NULL))) AS RN FROM Bronze.Prod_Info
+				WHERE TRY_CONVERT(INT, ProductKey) IS NOT NULL
+			)
+
+			INSERT INTO Silver.Prod_info
+			(
+			ProductKey,
+			ProductSubcategoryKey,
+			ProductSKU,
+			ProductName,
+			ModelName,
+			ProductDescription,
+			ProductColor,
+			ProductSize,
+			ProductStyle,
+			ProductCost,
+			ProductPrice
+			)
+			SELECT
+			ProductKey_INT,
+			ProductSubCategoryKey_INT,
+			ProductSKU,
+			ProductName,
+			ModelName,
+			ProductDescription,
+			ProductColor,
+			ProductSize,
+			ProductStyle,
+			ProductCost_DECI,
+			ProductPrice_DECI
+			FROM CTE_Product_info 
+			WHERE RN=1
+			AND ProductCost_DECI IS NOT NULL
+			AND ProductPrice_DECI IS NOT NULL 
+			AND ProductCost_DECI>0 --NEGATIVE VALUE
+			AND ProductPrice_DECI>0
+		
+		PRINT 'ROWS INSERTED '+ CAST(@@ROWCOUNT AS NVARCHAR)
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE()<>0
+		ROLLBACK;
+		PRINT 'ERROR OCCURRED'+ ERROR_MESSAGE()
+	END CATCH
+
+	SET @EndTime= GETDATE();
+	PRINT 'Load Duration' + CAST(DATEDIFF(SECOND,@StartTime, @EndTime)AS NVARCHAR)+'Seconds'
+	PRINT '================================================================================'
+
+	SET @StartTime=GETDATE();
+
+	PRINT 'Truncating table Calender info'
+	TRUNCATE TABLE Silver.Calender_info;
+
+	PRINT 'Loading data into: Silver.Calender_info'
+
+	INSERT INTO Silver.Calender_info
+	(
+	Dates
+	)
+	SELECT Dates 
+	FROM Bronze.Calender_info
+
+	SET @EndTime=GETDATE();
+
+	PRINT 'Load Duration' + CAST( DATEDIFF(Second, @StartTime, @EndTime) AS NVARCHAR) + 'Seconds'
+	PRINT '==============================================================================='
+
+	SET @StartTime=GETDATE();
+
+	PRINT 'Truncating table Sales Category'
+	TRUNCATE TABLE Silver.Cat_Sales;
+
+	PRINT 'Loading data into: Silver.Cat_Sales'
+
+	INSERT INTO Silver.Cat_Sales
+	(
+	Dates,
+	Prod_Category,
+	NorthRegion,
+	CentralRegion,
+	SouthRegion
+	)
+	SELECT 
+	Dates,
+	Prod_Category,
+	NorthRegion,
+	CentralRegion,
+	SouthRegion
+	FROM Bronze.Cat_Sales
+	WHERE Dates IS NOT NULL
+
+	SET @EndTime=GETDATE();
+	PRINT 'Load duration' + CAST(DATEDIFF(Second, @StartTime, @EndTime) AS NVARCHAR) + 'Seconds'
+	PRINT '==========================================================================='
+
+	SET @StartTime= GETDATE();
+
+	PRINT 'Truncating table Product Category'
+	TRUNCATE TABLE Silver.Prod_Cat;
+
+	PRINT 'Loading data into: Silver.Prod_Cat'
+
+	INSERT INTO Silver.Prod_Cat
+	(
+	Product_Cat_Key,
+	Product_Name
+	)
+	SELECT 
+	Product_Cat_Key,
+	Product_Name
+	FROM Bronze.Prod_Cat
+
+	SET @EndTime=GETDATE();
+	PRINT 'Load duration' + CAST(DATEDIFF(Second, @StartTime, @EndTime) AS NVARCHAR) + 'Seconds'
+	PRINT '==========================================================================='
+
+	SET @StartTime=GETDATE();
+
+	PRINT 'Truncating table Product SubCategory'
+	TRUNCATE TABLE Silver.Prod_SubCat;
+
+	PRINT 'Loading data into: Silver.Prod_SubCat'
+
+	INSERT INTO Silver.Prod_SubCat
+	(
+	SubCatKey,
+	SubCatName,
+	Product_Cat_Key
+	)
+	SELECT
+	SubCatKey,
+	SubCatName,
+	Product_Cat_Key
+	FROM Bronze.Prod_SubCat
+	WHERE SubCatKey IS NOT NULL
+
+	SET @EndTime=GETDATE();
+	PRINT 'Load duration' + CAST(DATEDIFF(Second, @StartTime, @EndTime) AS NVARCHAR) + 'Seconds'
+	PRINT '==========================================================================='
+
+	SET @StartTime=GETDATE();
+	BEGIN TRY
+		BEGIN TRAN;
+			PRINT 'Truncating table Return Data'
+			TRUNCATE TABLE Silver.Return_Data;
+
+			PRINT 'Loading data into: Silver.Return_Data';
+
+			WITH CTE_Return_Data AS
+			(
+				SELECT *,
+				TRY_CONVERT(DATE,ReturnDate) AS ReturnDate_Date,
+				TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_INT,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_INT,
+				TRY_CONVERT(INT,ReturnQuantity) AS ReturnQuantity_INT,
+				ROW_NUMBER() OVER (PARTITION BY TRY_CONVERT(DATE,ReturnDate),TRY_CONVERT(INT,TerritoryKey),TRY_CONVERT(INT,ProductKey) 
+				ORDER BY TRY_CONVERT(DATE,ReturnDate))
+				AS rn FROM Bronze.Return_Data
+			)
+			INSERT INTO Silver.Return_Data -- INSERT VALID AND UNIQUE RECORD
+			(
+			ReturnDate,
+			TerritoryKey,
+			ProductKey,
+			ReturnQuantity
+			)
+			SELECT 
+			ReturnDate_Date,
+			TerritoryKey_INT,
+			ProductKey_INT,
+			ReturnQuantity_INT
+			FROM CTE_Return_Data 
+			WHERE rn=1
+			AND ReturnDate_Date IS NOT NULL
+			AND ProductKey_INT IS NOT NULL
+			AND TerritoryKey_INT IS NOT NULL
+			AND ReturnQuantity_INT>0
+
+			SET @RowsInserted =@@ROWCOUNT;
+			WITH CTE_Return_Data AS
+			(
+				SELECT *,
+				TRY_CONVERT(DATE,ReturnDate) AS ReturnDate_Date,
+				TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_INT,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_INT,
+				TRY_CONVERT(INT,ReturnQuantity) AS ReturnQuantity_INT,
+				ROW_NUMBER() OVER (PARTITION BY TRY_CONVERT(DATE,ReturnDate),TRY_CONVERT(INT,TerritoryKey),TRY_CONVERT(INT,ProductKey) 
+				ORDER BY TRY_CONVERT(DATE,ReturnDate))
+				AS rn FROM Bronze.Return_Data
+			)
+			INSERT INTO Silver.Return_Data_Rejected --INSERT REJECTED RECORD
+			(
+			ReturnDate,
+			TerritoryKey,
+			ProductKey,
+			ReturnQuantity,
+			ReturnReason
+			)
+			SELECT 
+			ReturnDate_Date,
+			TerritoryKey_INT,
+			ProductKey_INT,
+			ReturnQuantity_INT,
+			CASE 
+				WHEN rn>1 THEN 'Duplicate Record'
+				WHEN ReturnDate_Date IS NULL THEN 'Invalid Date'
+				WHEN TerritoryKey_INT IS NULL THEN 'Invalid Location'
+				WHEN ReturnQuantity_INT<=0 THEN 'Invalid Quantity'
+				WHEN ProductKey_INT IS NULL THEN 'Invalid ProductKey'
+				ELSE 'Unkown Error'
+			END
+			FROM CTE_Return_Data
+			WHERE rn>1
+			OR ReturnDate_Date IS NULL
+			OR ProductKey_INT IS NULL
+			OR TerritoryKey_INT IS NULL
+			OR ReturnQuantity_INT <=0
+
+		SET @RowsRejected=@@ROWCOUNT;
+		COMMIT;
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE() <> 0
+		ROLLBACK;
+		PRINT 'ERROR OCCURRED' + ERROR_MESSAGE()
+	END CATCH
+	SET @EndTime=GETDATE();
+	SET @Error_Message=ERROR_MESSAGE();
+	SET @RowsRejected=@@ROWCOUNT;
+	SET @RowsInserted =@@ROWCOUNT;
+
+	INSERT INTO Silver.ETL_Log --INSERT LOG TRY
+	(
+	TableName,
+	StartTime,
+	EndTime,
+	RowsInserted,
+	RowsRejected,
+	Status,
+	ErrorMessage
+	)
+	VALUES
+	(
+	'Return Data',
+	@StartTime,
+	@EndTime,
+	@RowsInserted,
+	@RowsRejected,
+	CASE WHEN @Error_Message IS NULL THEN 'Success' ELSE 'Failed' END,
+	@Error_Message
+	)
+	
+	PRINT 'INSERTED' + CAST( @RowsInserted AS NVARCHAR);
+	PRINT 'Rejected' + CAST (@RowsRejected AS NVARCHAR);
+	PRINT 'Load duration' + CAST(DATEDIFF(Second, @StartTime, @EndTime) AS NVARCHAR) + 'Seconds'
+	PRINT '==========================================================================='
+
+	SET @StartTime=GETDATE();
+	BEGIN TRY
+		BEGIN TRAN;
+			PRINT 'Truncating table Sales 2020'
+			TRUNCATE TABLE Silver.Sales_2020;
+	
+			WITH CTE_Sales_2020 AS
+			(
+			SELECT *,
+				TRY_CONVERT(DATE,OrderDate) AS OrderDate_Clean,
+				TRY_CONVERT(DATE,StockDate) AS StockDate_Clean,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_Clean,
+				TRY_CONVERT(INT,CustomerKey) AS CustomerKey_Clean,
+				TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_Clean,
+				TRY_CONVERT(INT, OrderLineItem) AS OrderLineItem_Clean,
+				TRY_CONVERT(INT,OrderQuantity) AS OrderQuantity_Clean, 
+				ROW_NUMBER() OVER (PARTITION BY OrderNumber,OrderLineItem 
+				ORDER BY TRY_CONVERT(DATE,OrderDate) DESC) AS rn
+				FROM Bronze.Sales_2020
+			)
+
+			INSERT INTO Silver.Sales_2020
+			(
+			OrderDate,
+			StockDate,
+			OrderNumber,
+			ProductKey,
+			CustomerKey,
+			TerritoryKey,
+			OrderLineItem,
+			OrderQuantity
+			)
+			SELECT 
+			OrderDate_Clean,
+			StockDate_Clean,
+			OrderNumber,
+			ProductKey_Clean,
+			CustomerKey_Clean,
+			TerritoryKey_Clean,
+			OrderLineItem_Clean,
+			OrderQuantity_Clean
+			FROM CTE_Sales_2020 
+			WHERE rn=1
+			AND OrderQuantity>=0
+			AND OrderDate_Clean IS NOT NULL
+			AND ProductKey_Clean IS NOT NULL
+			AND OrderNumber IS NOT NULL
+			AND StockDate_Clean IS NOT NULL
+
+		PRINT 'Rows Inserted '+CAST(@@ROWCOUNT AS NVARCHAR);
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE()<>0
+		ROLLBACK;
+		PRINT 'ERROR OCCURRED' + ERROR_MESSAGE();
+	END CATCH
+
+	SET @EndTime=GETDATE();
+	PRINT 'Load Duration' + CAST(DATEDIFF(Second, @StartTime,@EndTime)AS NVARCHAR)+ ' Seconds'
+	PRINT '==========================================================================='
+
+	SET @StartTime=GETDATE();
+	BEGIN TRY
+		BEGIN TRAN;
+			PRINT 'Truncating table Sales 2021'
+			TRUNCATE TABLE Silver.Sales_2021;
+	
+			WITH CTE_Sales_2021 AS
+			(
+			SELECT *,
+				TRY_CONVERT(DATE,OrderDate) AS OrderDate_Clean,
+				TRY_CONVERT(DATE,StockDate) AS StockDate_Clean,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_Clean,
+				TRY_CONVERT(INT,CustomerKey) AS CustomerKey_Clean,
+				TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_Clean,
+				TRY_CONVERT(INT, OrderLineItem) AS OrderLineItem_Clean,
+				TRY_CONVERT(INT,OrderQuantity) AS OrderQuantity_Clean, 
+				ROW_NUMBER() OVER (PARTITION BY OrderNumber,OrderLineItem 
+				ORDER BY TRY_CONVERT(DATE,OrderDate) DESC) AS rn
+				FROM Bronze.Sales_2021
+			)
+
+			INSERT INTO Silver.Sales_2021
+			(
+			OrderDate,
+			StockDate,
+			OrderNumber,
+			ProductKey,
+			CustomerKey,
+			TerritoryKey,
+			OrderLineItem,
+			OrderQuantity
+			)
+			SELECT 
+			OrderDate_Clean,
+			StockDate_Clean,
+			OrderNumber,
+			ProductKey_Clean,
+			CustomerKey_Clean,
+			TerritoryKey_Clean,
+			OrderLineItem_Clean,
+			OrderQuantity_Clean
+			FROM CTE_Sales_2021 
+			WHERE rn=1
+			AND OrderQuantity>=0
+			AND OrderDate_Clean IS NOT NULL
+			AND ProductKey_Clean IS NOT NULL
+			AND OrderNumber IS NOT NULL
+			AND StockDate_Clean IS NOT NULL
+
+		PRINT 'Rows Inserted '+CAST(@@ROWCOUNT AS NVARCHAR);
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE()<>0
+		ROLLBACK;
+		PRINT 'ERROR OCCURRED' + ERROR_MESSAGE();
+	END CATCH
+
+	SET @EndTime=GETDATE();
+	PRINT 'Load Duration' + CAST(DATEDIFF(Second, @StartTime,@EndTime)AS NVARCHAR)+ ' Seconds'
+	PRINT '==========================================================================='
+
+	SET @StartTime=GETDATE();
+	BEGIN TRY
+		BEGIN TRAN;
+			PRINT 'Truncating table Sales 2022'
+			TRUNCATE TABLE Silver.Sales_2022;
+	
+			WITH CTE_Sales_2022 AS
+			(
+			SELECT *,
+				TRY_CONVERT(DATE,OrderDate) AS OrderDate_Clean,
+				TRY_CONVERT(DATE,StockDate) AS StockDate_Clean,
+				TRY_CONVERT(INT,ProductKey) AS ProductKey_Clean,
+				TRY_CONVERT(INT,CustomerKey) AS CustomerKey_Clean,
+				TRY_CONVERT(INT,TerritoryKey) AS TerritoryKey_Clean,
+				TRY_CONVERT(INT, OrderLineItem) AS OrderLineItem_Clean,
+				TRY_CONVERT(INT,OrderQuantity) AS OrderQuantity_Clean, 
+				ROW_NUMBER() OVER (PARTITION BY OrderNumber,OrderLineItem 
+				ORDER BY TRY_CONVERT(DATE,OrderDate) DESC) AS rn
+				FROM Bronze.Sales_2022
+			)
+
+			INSERT INTO Silver.Sales_2022
+			(
+			OrderDate,
+			StockDate,
+			OrderNumber,
+			ProductKey,
+			CustomerKey,
+			TerritoryKey,
+			OrderLineItem,
+			OrderQuantity
+			)
+			SELECT 
+			OrderDate_Clean,
+			StockDate_Clean,
+			OrderNumber,
+			ProductKey_Clean,
+			CustomerKey_Clean,
+			TerritoryKey_Clean,
+			OrderLineItem_Clean,
+			OrderQuantity_Clean
+			FROM CTE_Sales_2022
+			WHERE rn=1
+			AND OrderQuantity>=0
+			AND OrderDate_Clean IS NOT NULL
+			AND ProductKey_Clean IS NOT NULL
+			AND OrderNumber IS NOT NULL
+			AND StockDate_Clean IS NOT NULL
+
+		PRINT 'Rows Inserted '+ CAST(@@ROWCOUNT AS NVARCHAR);
+		COMMIT
+	END TRY
+	BEGIN CATCH
+		IF XACT_STATE()<>0
+		ROLLBACK;
+		PRINT 'ERROR OCCURRED' + ERROR_MESSAGE();
+	END CATCH
+
+	SET @EndTime=GETDATE();
+	PRINT 'Load Duration' + CAST(DATEDIFF(Second, @StartTime,@EndTime)AS NVARCHAR)+ ' Seconds'
+	PRINT '==========================================================================='
+
+	SET @StartTime=GETDATE();
+	PRINT 'Truncating table Territory info'
+	TRUNCATE TABLE Silver.Ter_info
+
+	PRINT 'Inserting into Silver.Ter_info'
+
+	INSERT INTO Silver.Ter_info
+	(
+	SalesTerritoryKey,
+	Region,
+	Country,
+	Continent
+	)
+	SELECT 
+	SalesTerritoryKey,
+	Region,
+	Country,
+	Continent
+	FROM Bronze.Ter_info
+	WHERE TRY_CONVERT(INT,SalesTerritoryKey) IS NOT NULL
+
+	SET @EndTime=GETDATE();
+	PRINT 'Load Duration' + CAST(DATEDIFF(Second, @StartTime,@EndTime)AS NVARCHAR)+ ' Seconds'
+	PRINT '==========================================================================='
+END
+
+
