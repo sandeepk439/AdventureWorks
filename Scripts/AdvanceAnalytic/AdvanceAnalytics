@@ -1,0 +1,175 @@
+--=========================
+--	Advance Analytics
+--============================
+
+--================================================
+--	Change over time(SUM of Measure Over Time)
+--=================================================
+--Total Sales By year
+SELECT 
+	YEAR(OrderDate),
+	COUNT(FullName) AS TotalCustomer,
+	SUM(OrderQuantity*Price) AS TotalSales
+FROM Gold.VW_Sales_Details
+GROUP BY YEAR(OrderDate)
+ORDER BY YEAR(Orderdate)
+
+--AVG  product category cost by Month
+
+SELECT 
+	ProductCategory,
+	MONTH(OrderDate) AS 'Month',
+	AVG(Cost) AS AvgCost 
+FROM Gold.VW_Sales_Details
+WHERE OrderDate IS NOT NULL
+GROUP BY MONTH(OrderDate),ProductCategory
+ORDER BY MONTH(OrderDate)
+
+--===========================================
+--	CUMULATIVE ANALYSIS
+--SUM OF CUMULATIVE MEASURE BY DATE DIMENSION
+--===========================================
+--Calculate the total Sales per month and running total sales over time
+
+SELECT 
+	OrderDate,
+	TotalSales,
+	SUM(TotalSales) OVER (ORDER BY OrderDate) AS RunningSales
+FROM
+(
+SELECT 
+	DATETRUNC(MONTH,OrderDate) AS OrderDate,
+	SUM(OrderQuantity*Price) AS TotalSales
+FROM Gold.VW_Sales_Details
+GROUP BY DATETRUNC(MONTH,OrderDate)
+)t
+
+--Moving AVG Sales by Month
+
+SELECT
+	OrderDate,
+	AVG_Sales,
+	AVG(AVG_Sales) OVER ( ORDER BY OrderDate) AS RunningSales
+FROM
+(SELECT 
+	DATETRUNC(MONTH,OrderDate) AS OrderDate,
+	AVG(OrderQuantity * Price) AS AVG_Sales
+FROM Gold.vw_Sales_Details
+GROUP BY DATETRUNC(MONTH,OrderDate)
+)t
+
+--==============================
+--	PERFORMANCE ANALYSIS
+--Current Measure-Target Measure
+--==============================
+--Analyse the yearly performance of the products by comparing their sales
+--to both the AVG sales performance of the product and the previous year's sale.
+select * from Gold.VW_Sales_Details
+select * from Gold.vw_Product_Details
+select * from Silver.Prod_info;
+
+WITH Yearly_Product_Sale AS (
+SELECT 
+	YEAR(s.OrderDate) AS OrderYear,
+	p.ProductName,
+	SUM(s.OrderAmount) AS CurrentSales
+FROM Gold.vw_Sales_Details s
+JOIN Gold.vw_product_Details p
+ON p.ProductKey=s.ProductKey
+WHERE s.OrderDate IS NOT NULL
+GROUP BY YEAR(s.OrderDate), p.ProductName
+)
+SELECT 
+	OrderYear,
+	ProductName,
+	CurrentSales,
+	AVG(CurrentSales) OVER (PARTITION BY ProductName) AS AVG_Sales,
+	CurrentSales-AVG(CurrentSales) OVER (PARTITION BY ProductName) AS Diff_AVG,
+	CASE
+		WHEN CurrentSales-AVG(CurrentSales) OVER (PARTITION BY ProductName)>0 THEN 'Above AVG'
+		WHEN CurrentSales-AVG(CurrentSales) OVER (PARTITION BY ProductName)<0 THEN 'Below AVG'
+		ELSE 'AVG'
+	END AS 'AVG',
+	LAG(CurrentSales) OVER (PARTITION BY ProductName ORDER BY OrderYear DESC) AS 'PreviousYearSale',
+	CurrentSales-LAG(CurrentSales) OVER (PARTITION BY ProductName ORDER BY OrderYear DESC) AS Diff_Prev_Year_Sale,
+	CASE
+		WHEN CurrentSales-LAG(CurrentSales) OVER (PARTITION BY ProductName ORDER BY OrderYear DESC)>0 THEN 'Increases'
+		WHEN CurrentSales-LAG(CurrentSales) OVER (PARTITION BY ProductName ORDER BY OrderYear DESC)<0 THEN 'Decreases'
+		ELSE 'No Change'
+	END AS PrevYearChange
+FROM Yearly_Product_Sale
+ORDER BY ProductName,OrderYear
+
+--=============================================================
+--	PART TO WHOLE>> Measure/Total Measure* 100 ( By Dimension)
+--=============================================================
+--Sales/Total Sales by Category 
+--Which Category contribute the most to overall Sales
+
+SELECT
+	ProductCategorY,
+	ROUND(SUM(OrderAmount),2) AS TotalSales
+FROM Gold.VW_Sales_Details
+GROUP BY ProductCategory
+
+--===================
+SELECT
+	ProductCategory,
+	OrderAmount,
+	SUM(OrderAmount) OVER() AS TotalSales,
+	CONCAT(ROUND(CAST(OrderAmount AS DECIMAL(18,2)) / SUM(OrderAmount) OVER() * 100,2),'%') AS PercentageOfTotal
+FROM Gold.VW_Sales_Details
+GROUP BY ProductCategory, OrderAmount
+ORDER BY OrderAmount
+
+
+--Quantity/Total Quantity by Country
+
+
+--=======================================
+--	DATA SEGMENTATION>>Measure By Measure
+--=======================================
+
+-- Total Products By Sale Range> Count product in the Sale range.
+
+WITH Product_Segment AS
+(
+SELECT
+	ProductKey,
+	Name AS ProductName,
+	Cost,
+	CASE NTILE(3) OVER (ORDER BY cost DESC) --NTILE GIVES BALANCE SEGMENTS
+        WHEN 1 THEN 'High '
+        WHEN 2 THEN 'Medium'
+        WHEN 3 THEN 'Low'
+	END AS CostRange
+FROM Gold.VW_Sales_Details
+)
+
+SELECT 
+	CostRange,
+	COUNT(DISTINCT ProductKey) AS TotalProducts
+FROM Product_Segment
+GROUP BY CostRange
+ORDER BY TotalProducts DESC;
+
+--GROUP CUSTOMER BY THEIR SPENDING
+
+WITH CustomerSpending AS
+(
+    SELECT
+       FullName AS CustomerName,
+       SUM(OrderAmount) AS TotalSpending
+    FROM Gold.VW_Sales_Details
+    GROUP BY FullName
+)
+SELECT
+    CustomerName,
+    TotalSpending,
+    CASE NTILE(3) OVER (ORDER BY TotalSpending DESC)
+        WHEN 1 THEN 'High Spender'
+        WHEN 2 THEN 'Medium Spender'
+        WHEN 3 THEN 'Low Spender'
+    END AS CustomerSegment
+FROM CustomerSpending
+
