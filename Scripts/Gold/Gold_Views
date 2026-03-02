@@ -1,0 +1,263 @@
+/*
+===============================================================================
+DDL Script: Create Gold Views
+===============================================================================
+Script Purpose:
+    This script creates views for the Gold layer in the data warehouse. 
+    It represents the final dimension and fact tables (Star Schema).
+
+    Each view performs transformations and combines data from the Silver layer 
+    to produce a clean and business ready dataset.
+
+Usage:
+    - These views can be queried directly for analytics and reporting.
+===============================================================================
+*/
+
+/*
+============================
+	Product Details VIEW 
+============================
+SELECT * FROM Gold.vw_Product_Details
+*/
+IF OBJECT_ID('Gold.vw_product_Details','V') IS NOT NULL
+	DROP VIEW Gold.vw_product_Details
+GO
+
+CREATE VIEW Gold.vw_Product_Details AS
+select 
+	ROW_NUMBER() OVER (ORDER BY p.ProductKey) AS ProductKey,
+	p.ProductKey AS Product_Key,
+	p.ProductName AS ProductName,
+	p.ProductSKU AS ProductSKU,
+	p.ModelName AS ModelName,
+	pc.Product_Name AS ProductCategory,
+	ps.SubCatName AS ProductSubCategory,
+	p.ProductColor AS Color,
+	p.ProductStyle AS Style,
+	p.ProductSize AS Size,
+	p.ProductCost AS Cost,
+	p.ProductPrice AS Price
+FROM Silver.Prod_info p
+LEFT JOIN Silver.Prod_SubCat ps
+ON p.ProductSubcategoryKey=ps.SubCatKey
+LEFT JOIN Silver.Prod_Cat pc
+ON pc.Product_Cat_Key=ps.Product_Cat_Key
+GO
+/*
+==============================
+	Combining All Sales VIEW
+===============================
+-- SELECT * FROM Gold.vw_Sales
+*/
+IF OBJECT_ID('Gold.vw_Sales','V') IS NOT NULL
+	DROP VIEW Gold.vw_Sales
+GO
+CREATE VIEW Gold.vw_Sales AS
+SELECT *
+FROM Silver.Sales_2020
+UNION ALL
+SELECT *
+FROM Silver.Sales_2021
+UNION ALL
+SELECT *
+FROM Silver.Sales_2022
+
+/* ===============================
+	Sales with full details
+======================================
+-- SELECT * FROM Gold.VW_Sales_Details
+*/
+IF OBJECT_ID('Gold.VW_Sales_Details','V') IS NOT NULL
+	DROP VIEW Gold.VW_Sales_Details
+GO
+CREATE VIEW Gold.VW_Sales_Details AS
+SELECT 
+	S.OrderDate AS OrderDate,
+	DATENAME(MONTH,C.Dates) AS 'MONTH',
+	S.OrderNumber AS OrderNumber,
+	CI.CustomerKey,
+	CI.FirstName+' '+CI.LastName AS FullName,
+	P.ProductKey,
+	P.ProductName AS Name,
+	PC.Product_Name AS ProductCategory,
+	P.ProductSubcategoryKey AS SubCategory,
+	S.OrderQuantity AS OrderQuantity,
+	P.ProductCost AS Cost,
+	P.ProductPrice AS Price,
+	P.ProductPrice*S.OrderQuantity AS OrderAmount,
+	T.Region AS Region,
+	T.Country AS Country
+FROM Gold.vw_Sales S
+LEFT JOIN Silver.Calender_info C
+ON S.OrderDate=C.Dates
+LEFT JOIN Silver.Ter_info T
+ON S.TerritoryKey=T.SalesTerritoryKey
+LEFT JOIN Silver.Prod_info P
+ON P.ProductKey=S.ProductKey
+LEFT JOIN Silver.Prod_SubCat PS
+ON PS.SubCatKey=P.ProductSubcategoryKey
+LEFT JOIN Silver.Prod_Cat PC
+ON PC.Product_Cat_Key=PS.Product_Cat_Key
+LEFT JOIN Silver.Cus_Info CI
+ON CI.CustomerKey=S.CustomerKey
+GO
+
+/*============================
+	Sales Summary (KPI VIEW)
+===============================
+*/
+IF OBJECT_ID('Gold.VW_SalesSummary','V') IS NOT NULL
+	DROP VIEW Gold.VW_SalesSummary
+GO
+CREATE VIEW Gold.VW_SalesSummary AS
+SELECT 
+    YEAR(OrderDate) AS SalesYear,
+    DATENAME(MONTH,OrderDate) AS SalesMonth,
+    SUM(OrderQuantity) AS TotalQuantity
+FROM Gold.vw_Sales
+GROUP BY YEAR(OrderDate), DATENAME(MONTH,OrderDate)
+GO
+
+/*==========================
+	Total Customer By Region
+==============================
+*/
+IF OBJECT_ID('Gold.VW_CustomerByRegion','V') IS NOT NULL
+	DROP VIEW Gold.VW_CustomerByRegion
+GO
+CREATE VIEW Gold.VW_CustomerByRegion AS
+SELECT 
+	T.Region AS Region,
+	COUNT(C.CustomerKey) AS CustomerCount
+FROM Silver.Cus_Info C
+LEFT JOIN Gold.vw_Sales S
+ON S.CustomerKey=C.CustomerKey
+JOIN Silver.Ter_info T
+ON T.SalesTerritoryKey=S.TerritoryKey
+GROUP BY T.Region
+GO
+
+/* ====================
+	Sales By Region
+========================
+*/
+IF OBJECT_ID('Gold.VW_SalesByRegion','V') IS NOT NULL
+	DROP VIEW Gold.VW_SalesByRegion
+GO
+CREATE VIEW Gold.VW_SalesByRegion AS
+SELECT
+	T.Region AS Region,
+	SUM(S.OrderQuantity) AS TotalSales
+FROM Gold.vw_Sales S
+LEFT JOIN Silver.Ter_info T
+ON T.SalesTerritoryKey=S.TerritoryKey
+GROUP BY T.Region
+GO
+/*========================
+	Customer Revenue VIEW
+============================
+
+*/
+IF OBJECT_ID('Gold.vw_Customer_Sales','V') IS NOT NULL
+	DROP VIEW Gold.vw_Customer_Sales
+GO
+CREATE VIEW Gold.vw_Customer_Sales AS
+SELECT 
+    CU.CustomerKey,
+    CU.FirstName,
+    CU.LastName,
+    SUM(S.OrderQuantity) AS TotalPurchase
+FROM Gold.vw_Sales S
+JOIN Silver.Cus_Info CU
+ON S.CustomerKey = CU.CustomerKey
+GROUP BY CU.CustomerKey,CU.FirstName,CU.LastName;
+GO
+/* =======================
+	Return Analysis View
+	By Region with Date
+============================
+*/
+IF OBJECT_ID('Gold.vw_ReturnAnalysis','V') IS NOT NULL
+	DROP VIEW Gold.vw_ReturnAnalysis
+GO
+CREATE VIEW Gold.vw_ReturnAnalysis AS
+SELECT 
+    R.ReturnDate,
+    T.Region,
+    SUM(R.ReturnQuantity) AS TotalReturns
+FROM Silver.Return_Data R
+JOIN Silver.Ter_info T
+ON R.TerritoryKey = T.SalesTerritoryKey
+GROUP BY R.ReturnDate, T.Region
+GO
+/*=========================
+	Return % VIEW 
+============================
+*/
+IF OBJECT_ID('Gold.VW_ReturnPercentage','V') IS NOT NULL
+	DROP VIEW Gold.VW_ReturnPercentage
+GO
+CREATE VIEW Gold.VW_ReturnPercentage AS
+SELECT 
+    S.OrderDate,
+    SUM(S.OrderQuantity) AS TotalSales,
+    ISNULL(SUM(R.ReturnQuantity),0) AS TotalReturns,--if no value then instead of NULL it will give 0.
+    CASE 
+        WHEN SUM(S.OrderQuantity) = 0 THEN 0
+        ELSE CAST(ROUND((ISNULL(SUM(R.ReturnQuantity),0) * 100.0 / SUM(S.OrderQuantity)),2) AS DECIMAL(10,2))
+    END AS ReturnPercentage
+FROM Gold.vw_Sales S
+LEFT JOIN Silver.Return_Data R
+ON S.ProductKey = R.ProductKey AND S.TerritoryKey = R.TerritoryKey
+GROUP BY S.OrderDate;
+GO
+
+/*=========================
+	Customer VIEW
+============================= */
+IF OBJECT_ID('Gold.VW_Customer_Trans_info','V') IS NOT NULL
+DROP VIEW Gold.VW_Customer_Trans_info
+GO
+CREATE VIEW Gold.VW_Customer_Trans_info AS
+SELECT 
+	C.CustomerKey,
+	C.FirstName+' '+C.LastName AS CustomerName,
+	C.Gender,
+	C.MaritalStatus,
+	C.BirthDate,
+	C.AnnualIncome,
+	C.Occupation,
+	C.EducationLevel,
+	T.Country,
+	T.Region,
+	SD.OrderDate,
+	SD.OrderNumber,
+	SD.ProductKey AS ProductOrdered,
+	P.ProductName,
+	SD.OrderQuantity
+FROM Silver.Cus_Info C
+LEFT JOIN Gold.VW_Sales SD ON C.CustomerKey=SD.CustomerKey
+LEFT JOIN Silver.Ter_info T ON T.SalesTerritoryKey=SD.TerritoryKey
+LEFT JOIN Silver.Prod_info P ON P.ProductKey=SD.ProductKey
+GO
+
+IF OBJECT_ID('Gold.VW_Customer_Details','V') IS NOT NULL
+DROP VIEW Gold.VW_Customer_Details
+GO
+CREATE VIEW Gold.VW_Customer_Details AS
+SELECT DISTINCT 
+	C.CustomerKey,
+	C.FirstName+' '+C.LastName AS CustomerName,
+	C.Gender,
+	C.MaritalStatus,
+	C.BirthDate,
+	C.AnnualIncome,
+	C.Occupation,
+	C.EducationLevel,
+	T.Country,
+	T.Region
+FROM Gold.VW_Sales SD
+RIGHT JOIN Silver.Cus_Info C ON C.CustomerKey=SD.CustomerKey
+LEFT JOIN Silver.Ter_info T ON T.SalesTerritoryKey=SD.TerritoryKey
+GO
