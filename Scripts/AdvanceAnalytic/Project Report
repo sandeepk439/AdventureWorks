@@ -1,0 +1,140 @@
+/*
+====================================================================================
+===============================
+	Advance Analytic Project
+===============================
+>>==================
+	Customer Report
+>>==================
+Purpose: This Report consolidates key Customer metrics and behaviour.
+
+Highlights:
+	1. Gathers essential fields such as names, ages, and transaction details.
+	2. Segement Customer into Categories( VIP, Regular, New) and age groups.
+	3. Aggregates Customer level metrics;
+		Total Orders:
+		Total Sales:
+		Total Quantity Purchased:
+		Total Products:
+		Lifespan(Month):
+	4. Calculate valuable KPIs.
+		recency(Month since last order)
+		AVG order Value
+		AVG monthly spend.
+=====================================================================================
+*/
+CREATE VIEW Gold.VW_Customer_Report AS
+WITH Base_Details AS(
+SELECT 
+	ct.CustomerKey,
+	ct.CustomerName,
+	DATEDIFF(year,ct.BirthDate,GETDATE()) AS Age,
+	sd.OrderDate,
+	sd.OrderNumber,
+	sd.ProductKey,
+	ct.ProductName,
+	sd.OrderQuantity AS OrderQuantity,
+	sd.OrderAmount AS SaleAmount
+FROM Gold.VW_Customer_Trans_info ct
+LEFT JOIN Gold.VW_Sales_Details sd ON sd.OrderNumber=ct.OrderNumber
+WHERE sd.OrderNumber IS NOT NULL
+)
+SELECT 
+	CustomerKey,
+	CustomerName,
+	Age,
+	CASE NTILE(4) OVER(ORDER BY Age DESC)
+		WHEN 1 THEN 'Above 75'
+		WHEN 2 THEN 'Between 50-75'
+		WHEN 3 THEN 'Between 25-50'
+		WHEN 4 THEN 'Below 25'
+	END AS Age_Range,
+	COUNT(DISTINCT OrderNumber) AS TotalOrder,
+	SUM(SaleAmount) AS TotalTransaction,
+	AVG(SaleAmount) AS AvgOrderValue,
+	SUM(OrderQuantity) AS TotalOrderQuantity,
+	COUNT(DISTINCT ProductKey) AS TotalProducts,
+	MAX(OrderDate) AS LastOrderDate,
+	DATEDIFF(month, MIN(OrderDate), Max(OrderDate)) AS LifeSpan,
+	CASE NTILE(3) OVER(ORDER BY DATEDIFF(month, MIN(OrderDate), Max(OrderDate)) DESC)
+		WHEN 1 THEN 'VIP'
+		WHEN 2 THEN 'Regular'
+		WHEN 3 THEN 'New'
+	END AS CustomerType
+FROM Base_Details
+GROUP BY CustomerKey,CustomerName,Age
+
+/*
+====================================================================================================
+										PRODUCT REPORT
+----------------------------------------------------------------------------------------------------
+--Report consolidate key product metrices and behaviour.
+Highlight:
+	1. Gather essential field such as productName, Category, Subcategory and Cost.
+	2.Segments products by revenue to identify High performer, Mid-Range, or Low performer.
+	3. Aggregate product level metrices:
+		-total order
+		-total Sales
+		-Total Quantity Sold
+		-Total Unique Customer
+		-Lifespan (in month)
+	4. Calculate Valuable KPIs:
+		-recency (Month since last sale)
+		-AVG order revenue
+		-AVG Monthly revenue
+=======================================================================================================*/
+CREATE VIEW Gold.VW_Product_Report AS
+WITH Base_Details AS(
+SELECT 
+	pd.ProductKey,
+	pd.ProductName,
+	pd.ProductCategory,
+	pd.ProductSubCategory,
+	pd.Price AS ProductCost,
+	sd.CustomerKey,
+	sd.OrderNumber,
+	sd.OrderDate,
+	sd.OrderQuantity,
+	pd.Price*sd.OrderQuantity AS ProductOrderAmount
+FROM Gold.vw_Product_Details pd
+LEFT JOIN Gold.VW_Sales sd 
+	ON pd.ProductKey = sd.ProductKey
+WHERE sd.OrderNumber IS NOT NULL
+),
+Product_Aggregation AS(
+SELECT 
+	ProductKey,
+	ProductName,
+	ProductCategory,
+	ProductSubCategory,
+	ProductCost,
+	DATEDIFF(MONTH,MIN(OrderDate),MAX(OrderDate)) AS ProductLifeSpan,
+	MAX(OrderDate) AS LastOrderDate,
+	COUNT(DISTINCT OrderNumber) AS TotalOrders,
+	COUNT(DISTINCT CustomerKey) AS TotalCustomers,
+	SUM(ProductOrderAmount) AS TotalSalesAmount
+FROM Base_Details
+GROUP BY 
+	ProductKey,
+	ProductName,
+	ProductCategory,
+	ProductSubCategory,
+	ProductCost
+)
+SELECT 
+	ProductKey,
+	ProductName,
+	ProductCategory,
+	ProductSubCategory,
+	ProductCost,
+	CASE NTILE(3) OVER (ORDER BY TotalSalesAmount DESC)
+		WHEN 1 THEN 'High Performer'
+		WHEN 2 THEN 'Mid Performer'
+		WHEN 3 THEN 'Low Performer'
+	END AS ProductSegments,
+	LastOrderDate,
+	ProductLifeSpan,
+	TotalOrders,
+	TotalSalesAmount,
+	TotalCustomers
+FROM Product_Aggregation;
