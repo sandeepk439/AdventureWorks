@@ -1,6 +1,7 @@
 =======================================
 # Datawarehouse and Analytics Project
 =======================================
+
 This is the project for my SQL skill demonstration. Here i am creating database using SSMS. Data warehouse operation such that ETL has been done in the scripts. Also focuses on data analytics.
 
 ---------------------
